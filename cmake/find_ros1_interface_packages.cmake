@@ -19,6 +19,9 @@ function(find_ros1_interface_packages var)
   set(PYTHONPATH "$ENV{PYTHONPATH}")
   file(TO_CMAKE_PATH "${PYTHONPATH}" CMAKE_PYTHONPATH)
   set(PYTHONPATH_WITHOUT_ROS2 "")
+  set(ROS_PACKAGE_PATH "$ENV{ROS_PACKAGE_PATH}")
+  file(TO_CMAKE_PATH "${ROS_PACKAGE_PATH}" CMAKE_ROS_PACKAGE_PATH)
+  set(ROS_PACKAGE_PATH_WITHOUT_ROS2 "")
   foreach(python_path IN LISTS CMAKE_PYTHONPATH)
     set(match FALSE)
     foreach(ament_prefix_path IN LISTS AMENT_PREFIX_PATH)
@@ -37,6 +40,24 @@ function(find_ros1_interface_packages var)
   endif()
   set(ENV{PYTHONPATH} "${PYTHONPATH_WITHOUT_ROS2}")
 
+  foreach(ros_package_path IN LISTS CMAKE_ROS_PACKAGE_PATH)
+    set(match FALSE)
+    foreach(ament_prefix_path IN LISTS AMENT_PREFIX_PATH)
+      if(ros_package_path MATCHES "^${ament_prefix_path}/")
+        set(match TRUE)
+        break()
+      endif()
+    endforeach()
+    if(NOT match)
+      list(APPEND ROS_PACKAGE_PATH_WITHOUT_ROS2 "${ros_package_path}")
+    endif()
+  endforeach()
+  file(TO_NATIVE_PATH "${ROS_PACKAGE_PATH_WITHOUT_ROS2}" ROS_PACKAGE_PATH_WITHOUT_ROS2)
+  if(NOT WIN32)
+    string(REPLACE ";" ":" ROS_PACKAGE_PATH_WITHOUT_ROS2 "${ROS_PACKAGE_PATH_WITHOUT_ROS2}")
+  endif()
+  set(ENV{ROS_PACKAGE_PATH} "${ROS_PACKAGE_PATH_WITHOUT_ROS2}")
+
   # find all known ROS1 message/service packages
   execute_process(
       COMMAND "rosmsg" "list"
@@ -51,6 +72,7 @@ function(find_ros1_interface_packages var)
 
   # restore PYTHONPATH
   set(ENV{PYTHONPATH} ${PYTHONPATH})
+  set(ENV{ROS_PACKAGE_PATH} ${ROS_PACKAGE_PATH})
 
   if(NOT rosmsg_error STREQUAL "" OR NOT rossrv_error STREQUAL "")
     message(FATAL_ERROR "${rosmsg_error}\n${rossrv_error}\nFailed to call rosmsg/rossrv")
@@ -63,4 +85,5 @@ function(find_ros1_interface_packages var)
     list_append_unique(ros1_message_packages ${interface_package})
   endforeach()
   set(${var} ${ros1_message_packages} PARENT_SCOPE)
+
 endfunction()
